@@ -105,7 +105,7 @@ pub async fn initialization(cx: &Cx) -> Result<([(header::HeaderName, &'static s
 /// Kobo's store API, which the proxy forwards to. `KOBO_STORE_URL` replaces it, for
 /// testing.
 fn store() -> String {
-    std::env::var("KOBO_STORE_URL").unwrap_or_else(|_| "https://storeapi.kobo.com".to_owned())
+    std::env::var("KOBO_STORE_URL").ok().filter(|u| !u.is_empty()).unwrap_or_else(|| "https://storeapi.kobo.com".to_owned())
 }
 
 /// Whether requests this app does not answer go on to the Kobo store, as calibre-web's

@@ -52,8 +52,8 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                         field(label: t!(current_password).resolve(cx),
                             input(attrs: attributes! { name="current" type="password" required="" autocomplete="current-password" })
                         )
-                        field(label: t!(new_password).resolve(cx), hint: t!(password_rule).resolve(cx),
-                            input(attrs: attributes! { name="new" type="password" required="" minlength="8" autocomplete="new-password" })
+                        field(label: t!(new_password).resolve(cx),
+                            input(attrs: attributes! { name="new" type="password" required="" autocomplete="new-password" })
                         )
                         button(attrs: attributes! { type="submit" class="justify-self-start" }, (t!(change_password)))
                     </form>
@@ -151,7 +151,7 @@ pub struct PasswordForm {
 pub async fn change_password(cx: &Cx, Form(form): Form<PasswordForm>) -> Result<SeeOther> {
     let user = signed_in(cx).await?.clone();
     let back = href!(page).resolve(cx);
-    if form.new.chars().count() < 8 {
+    if form.new.is_empty() {
         return Ok(see_other(with_error(back, &t!(password_rule).resolve(cx))));
     }
     if auth::check_password(cx, &user.name, &form.current).await?.is_none() {

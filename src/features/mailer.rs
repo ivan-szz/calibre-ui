@@ -14,16 +14,17 @@ use topcoat::{
 
 /// The mail configuration from the environment.
 pub fn config() -> MailConfig {
-    match std::env::var("SMTP_URL") {
-        Ok(url) => MailConfig::builder()
+    // An empty value counts as unset, as hosting panels pass blank fields that way.
+    match std::env::var("SMTP_URL").ok().filter(|u| !u.is_empty()) {
+        Some(url) => MailConfig::builder()
             .transport(SmtpTransport::from_url(&url).expect("SMTP_URL is not a valid SMTP URL").build())
             .build(),
-        Err(_) => MailConfig::builder().transport(FileTransport::new("mail-outbox")).build(),
+        None => MailConfig::builder().transport(FileTransport::new("mail-outbox")).build(),
     }
 }
 
 fn sender() -> String {
-    std::env::var("MAIL_FROM").unwrap_or_else(|_| "library@localhost".to_owned())
+    std::env::var("MAIL_FROM").ok().filter(|f| !f.is_empty()).unwrap_or_else(|| "library@localhost".to_owned())
 }
 
 /// Emails `file` to `to` as an attachment named `name`.

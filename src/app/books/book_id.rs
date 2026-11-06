@@ -30,6 +30,7 @@ use crate::{
         calibre::{self, OUTPUT_FORMATS},
         library::{self, Item, Kind, content_type, human_size},
         mailer,
+        reader::ReadingPosition,
         shelf::{ReadMark, Shelf},
     },
     t,
@@ -56,6 +57,11 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
     let targets: Vec<&str> = OUTPUT_FORMATS.into_iter().filter(|f| !has(f)).collect();
     let can_download = user.can(Perm::Download);
     let can_edit = user.can(Perm::Edit);
+    // How far the user is in each readable format, beside its Read button.
+    let mut progress = Vec::new();
+    for format in &readable {
+        progress.push(ReadingPosition::get(cx, user.id, id as u64, format).await?.map(|p| p.percent));
+    }
 
     Ok(view! {
         <article class="grid gap-8 md:grid-cols-[minmax(0,240px)_1fr] lg:gap-12">
@@ -65,13 +71,17 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                 </div>
                 if can_download && !readable.is_empty() {
                     <div class="mt-6 grid gap-2">
-                        for format in &readable {
+                        for (format, percent) in readable.iter().zip(&progress) {
                             <a
                                 href=(href!(read::page, BookId(id)).resolve(cx) + "?format=" + &format.to_lowercase())
                                 class=(button_variants(ButtonVariant::Primary, ButtonSize::Md))
                             >
                                 icon(data: iconify_icon!("lucide:book-open-text"))
-                                (t!(read_book)) " " (if readable.len() > 1 { *format } else { "" })
+                                match percent {
+                                    Some(percent) if *percent > 0 => <span>(t!(continue_reading)) " · " (percent) "%"</span>,
+                                    _ => <span>(t!(read_book))</span>,
+                                }
+                                " " (if readable.len() > 1 { *format } else { "" })
                             </a>
                         }
                     </div>

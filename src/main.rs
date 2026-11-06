@@ -20,6 +20,18 @@ async fn main() {
         return;
     }
 
+    // Every library page reads `metadata.db`, and without it they fail with a bare 500
+    // that names no cause, so stop here with one that does.
+    let metadata = features::library::root().join("metadata.db");
+    if !metadata.is_file() {
+        let shown = std::path::absolute(&metadata).unwrap_or(metadata);
+        eprintln!(
+            "no Calibre library at {}: set CALIBRE_LIBRARY to the folder that contains metadata.db",
+            shown.display()
+        );
+        std::process::exit(1);
+    }
+
     // Creates or updates the tables before serving, so a missing or new `data.db` works.
     if let Err(error) = toasty_cli::ToastyCli::new(db.clone()).parse_from(["toasty", "migration", "apply"]).await {
         eprintln!("applying database migrations failed: {error:#}");

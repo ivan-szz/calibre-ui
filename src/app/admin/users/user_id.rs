@@ -73,8 +73,8 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                 )
                 card_content(
                     <form method="post" action=(href!(reset_password, UserId(id))) class="grid gap-4">
-                        field(label: t!(new_password).resolve(cx), hint: t!(password_rule).resolve(cx),
-                            input(attrs: attributes! { name="password" type="password" required="" minlength="8" autocomplete="new-password" })
+                        field(label: t!(new_password).resolve(cx),
+                            input(attrs: attributes! { name="password" type="password" required="" autocomplete="new-password" })
                         )
                         button(attrs: attributes! { type="submit" class="justify-self-start" }, (t!(set_password)))
                     </form>
@@ -133,7 +133,7 @@ pub struct PasswordForm {
 pub async fn reset_password(cx: &Cx, Form(form): Form<PasswordForm>) -> Result<SeeOther> {
     let user = target(cx).await?;
     let back = href!(page, UserId(user.id)).resolve(cx);
-    if form.password.chars().count() < 8 {
+    if form.password.is_empty() {
         return Ok(see_other(with_error(back, &t!(password_rule).resolve(cx))));
     }
     User::set_password(cx, user.id, &form.password).await?;

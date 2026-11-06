@@ -142,3 +142,95 @@
     @apply bg-background font-sans text-foreground;
   }
 }
+
+/* The reader's page colours. Each one restyles the tokens, so the reader's
+   controls follow it; `reader.js` reads `--background` and `--foreground` for the
+   book's own pages. Cream is the default: softer on the eyes than white. */
+[data-reader-theme="cream"] {
+  --background: #f6efdf;
+  --foreground: #3b3226;
+  --card: #fbf7ec;
+  --popover: #fbf7ec;
+  --card-foreground: #3b3226;
+  --popover-foreground: #3b3226;
+  --muted-foreground: #776a57;
+  --border: #e3d7bf;
+  --primary: #8a5a2b;
+  --primary-foreground: #fbf7ec;
+  --ring: #a8743f;
+}
+
+[data-reader-theme="sepia"] {
+  --background: #eadcc0;
+  --foreground: #47372a;
+  --card: #f2e7d0;
+  --popover: #f2e7d0;
+  --card-foreground: #47372a;
+  --popover-foreground: #47372a;
+  --muted-foreground: #7a6650;
+  --border: #d6c4a2;
+  --primary: #7c4f26;
+  --primary-foreground: #f2e7d0;
+  --ring: #9a6634;
+}
+
+[data-reader-theme="white"] {
+  --background: #ffffff;
+  --foreground: #1f2328;
+  --card: #ffffff;
+  --popover: #ffffff;
+  --card-foreground: #1f2328;
+  --popover-foreground: #1f2328;
+  --muted-foreground: #5f6670;
+  --border: #e3e5e8;
+  --primary: oklch(0.48 0.17 268);
+  --primary-foreground: #ffffff;
+  --ring: oklch(0.55 0.17 268);
+}
+
+[data-reader-theme="dark"] {
+  --background: #1d1c1a;
+  --foreground: #d8d2c4;
+  --card: #262522;
+  --popover: #262522;
+  --card-foreground: #d8d2c4;
+  --popover-foreground: #d8d2c4;
+  --muted-foreground: #9a9384;
+  --border: #3a3834;
+  --primary: #d6a96b;
+  --primary-foreground: #1d1c1a;
+  --ring: #d6a96b;
+}
+
+@layer components {
+  /* The tall prev/next strips beside the page: easy to hit with a mouse, and
+     out of the way of links in the text. */
+  .reader-turn {
+    @apply flex w-10 shrink-0 items-center justify-center text-muted-foreground transition-colors outline-none sm:w-16;
+    @apply hover:bg-foreground/5 hover:text-foreground focus-visible:bg-foreground/5 focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset;
+  }
+
+  .reader-panel {
+    @apply absolute top-2 z-20 max-h-[calc(100%-1rem)] w-[min(22rem,calc(100%-1rem))] overflow-y-auto rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg sm:top-3;
+  }
+
+  /* Built by `reader.js`, which Tailwind does not scan. */
+  .reader-toc-link {
+    @apply block rounded-md px-2 py-1.5 hover:bg-foreground/5 focus-visible:outline-2 focus-visible:outline-ring;
+    @apply aria-[current=true]:bg-foreground/10 aria-[current=true]:font-medium;
+  }
+
+  /* "You stopped here", laid by `reader.js` over the line the reader left off at. */
+  .reader-resume {
+    @apply pointer-events-none absolute z-10 rounded-sm border-l-4 border-primary bg-primary/15;
+  }
+
+  .reader-resume-label {
+    @apply pointer-events-none absolute z-10 rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium whitespace-nowrap text-primary-foreground shadow-sm;
+  }
+
+  .reader-swatch {
+    @apply flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-border bg-background px-2 py-2 text-foreground;
+    @apply has-checked:ring-2 has-checked:ring-ring has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring;
+  }
+}

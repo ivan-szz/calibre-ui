@@ -22,7 +22,7 @@ pub async fn setup(cx: &Cx, Form(form): Form<Credentials>) -> Result<SeeOther> {
         return Err(forbidden().into());
     }
     let name = form.name.trim();
-    if name.is_empty() || form.password.chars().count() < 8 {
+    if name.is_empty() || form.password.is_empty() {
         return Ok(see_other(with_error(href!(page).resolve(cx), &crate::t!(account_rule).resolve(cx))));
     }
     let all = Perms { admin: true, download: true, upload: true, edit: true };

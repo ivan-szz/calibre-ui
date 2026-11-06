@@ -72,7 +72,8 @@ pub async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
         let path = dir.join(format!("upload-{}.{ext}", added.len() + errors.len()));
         tokio::fs::write(&path, &bytes).await?;
         match calibre::add_book(&path).await {
-            Ok(id) => added.push(id),
+            Ok(Some(id)) => added.push(id),
+            Ok(None) => errors.push(format!("{name}: {}", t!(upload_duplicate).resolve(cx))),
             Err(error) => errors.push(format!("{name}: {error}")),
         }
     }

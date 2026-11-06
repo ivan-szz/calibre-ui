@@ -22,7 +22,7 @@ use super::library::root;
 pub const OUTPUT_FORMATS: [&str; 7] = ["EPUB", "AZW3", "MOBI", "PDF", "DOCX", "TXT", "KEPUB"];
 
 fn tool(env: &str, name: &str) -> PathBuf {
-    if let Some(path) = std::env::var_os(env) {
+    if let Some(path) = std::env::var_os(env).filter(|p| !p.is_empty()) {
         return path.into();
     }
     let bundled = Path::new("/Applications/calibre.app/Contents/MacOS").join(name);
@@ -47,10 +47,12 @@ async fn calibredb(command: &str, args: impl IntoIterator<Item = OsString>) -> R
     run(tool("CALIBREDB", "calibredb"), all).await
 }
 
-/// Adds a book file to the library and returns the new book's id.
-pub async fn add_book(file: &Path) -> Result<i64> {
+/// Adds a book file to the library and returns the new book's id, or `None` when the
+/// library already has the book. `calibredb add` then succeeds without adding it, and
+/// says why only on stderr.
+pub async fn add_book(file: &Path) -> Result<Option<i64>> {
     let out = calibredb("add", [file.into()]).await?;
-    parse_added_id(&out).ok_or_else(|| Error::msg(format!("calibredb did not add the book: {}", out.trim())))
+    Ok(parse_added_id(&out))
 }
 
 /// Reads the id from `calibredb add` output such as `Added book ids: 12`.

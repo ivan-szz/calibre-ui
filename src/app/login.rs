@@ -50,12 +50,11 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                     field(label: t!(username).resolve(cx),
                         input(attrs: attributes! { name="name" required="" autocomplete="username" autofocus="" })
                     )
-                    field(label: t!(password).resolve(cx), hint: if first_run { t!(password_rule).resolve(cx) } else { "".into() },
+                    field(label: t!(password).resolve(cx),
                         input(attrs: attributes! {
                             name="password"
                             type="password"
                             required=""
-                            minlength=(if first_run { "8" } else { "1" })
                             autocomplete=(if first_run { "new-password" } else { "current-password" })
                         })
                     )

@@ -77,8 +77,8 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                 card_content(
                     <form method="post" action=(href!(create)) class="grid gap-4">
                         field(label: t!(username).resolve(cx), input(attrs: attributes! { name="name" required="" maxlength="64" }))
-                        field(label: t!(password).resolve(cx), hint: t!(password_rule).resolve(cx),
-                            input(attrs: attributes! { name="password" type="password" required="" minlength="8" autocomplete="new-password" })
+                        field(label: t!(password).resolve(cx),
+                            input(attrs: attributes! { name="password" type="password" required="" autocomplete="new-password" })
                         )
                         <fieldset class="grid gap-2">
                             <legend class="mb-1 text-sm font-medium">(t!(permissions))</legend>
@@ -108,7 +108,7 @@ pub async fn create(cx: &Cx, Form(form): Form<NewUser>) -> Result<SeeOther> {
     require(cx, Perm::Admin).await?;
     let back = href!(page).resolve(cx);
     let name = form.name.trim();
-    if name.is_empty() || name.len() > 64 || form.password.chars().count() < 8 {
+    if name.is_empty() || name.len() > 64 || form.password.is_empty() {
         return Ok(see_other(with_error(back, &t!(account_rule).resolve(cx))));
     }
     if !User::add(cx, name, &form.password, form.perms.perms()).await? {

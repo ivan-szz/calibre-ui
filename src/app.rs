@@ -120,6 +120,8 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
     // Keeps the search text in the box; an invalid query string is the page's to report.
     let search = topcoat::router::query_params::<ui::ListQuery>(cx).ok().and_then(|q| q.q.clone());
     let user = auth::current_user(cx).await.cloned();
+    // The reader fills the window with the book alone.
+    let reading = books::book_id::read::is_reader(request::uri(cx).path());
     Ok(view! {
         <!DOCTYPE html>
         <html lang=(locale(cx).id()) dir=(locale(cx).id().direction())>
@@ -135,6 +137,7 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
             </head>
             <body class="min-h-screen md:flex">
                 match user {
+                    Some(_) if reading => (slot),
                     None => <main class="flex min-h-screen flex-1 flex-col items-center justify-center px-4 py-12">
                         <div class="w-full max-w-sm">ui::notice()</div>
                         (slot)

@@ -16,7 +16,7 @@ pub const SORTS: [&str; 5] = ["new", "old", "title", "author", "pubdate"];
 
 /// The library folder, which holds `metadata.db` and one folder per book.
 pub fn root() -> PathBuf {
-    std::env::var_os("CALIBRE_LIBRARY").map_or_else(|| "library".into(), PathBuf::from)
+    std::env::var_os("CALIBRE_LIBRARY").filter(|p| !p.is_empty()).map_or_else(|| "library".into(), PathBuf::from)
 }
 
 // shortcut: one blocking connection per call on the async thread; fine for a local

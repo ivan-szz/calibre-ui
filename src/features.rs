@@ -8,4 +8,5 @@ pub mod ldap;
 pub mod library;
 pub mod mailer;
 pub mod oidc;
+pub mod reader;
 pub mod shelf;

@@ -1,0 +1,10 @@
+# Build output, and local data that must never be baked into the image.
+/target
+/data.db*
+/library
+/mail-outbox
+
+# Editor and tool state.
+/.git
+/.idea
+/.playwright-mcp

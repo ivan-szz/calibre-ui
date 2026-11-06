@@ -3,8 +3,9 @@
 use toasty::Db;
 use topcoat::context::{Cx, app_context};
 
-/// The local SQLite database file, created when it is first opened.
-const DATABASE_URL: &str = "sqlite:data.db";
+/// The local SQLite database file, created when it is first opened. `DATABASE_URL`
+/// moves it, such as onto a persistent volume in a container.
+const DEFAULT_DATABASE_URL: &str = "sqlite:data.db";
 
 /// Opens the database with every model in the application.
 ///
@@ -14,7 +15,7 @@ const DATABASE_URL: &str = "sqlite:data.db";
 pub async fn connect() -> toasty::Result<Db> {
     Db::builder()
         .models(toasty::models!(crate::*))
-        .connect(DATABASE_URL)
+        .connect(&std::env::var("DATABASE_URL").ok().filter(|u| !u.is_empty()).unwrap_or_else(|| DEFAULT_DATABASE_URL.to_owned()))
         .await
 }
 

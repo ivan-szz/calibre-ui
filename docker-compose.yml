@@ -1,0 +1,32 @@
+# For Coolify's "Docker Compose" build pack, or `docker compose up` anywhere.
+# In Coolify, give the service its domain with the container port, like
+# `https://books.example.com:3000`, and fill the variables in its Environment tab.
+services:
+  calibre-ui:
+    build: .
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      # The app's address as users and devices reach it. Needed for OIDC and for Kobo
+      # sync links behind a proxy.
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      # Optional. Blank values count as unset.
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_NAME: ${OIDC_NAME:-}
+      LDAP_URL: ${LDAP_URL:-}
+      LDAP_USER_DN: ${LDAP_USER_DN:-}
+      KOBO_STORE_PROXY: ${KOBO_STORE_PROXY:-}
+    volumes:
+      # Accounts, sessions, shelves, reading positions; Calibre's own settings.
+      - calibre-ui-data:/data
+      # The Calibre library. Created empty on the first start if there is none.
+      - calibre-ui-library:/library
+
+volumes:
+  calibre-ui-data:
+  calibre-ui-library:

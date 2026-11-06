@@ -15,13 +15,14 @@ A port of [calibre-web](https://github.com/janeczku/calibre-web) to [Topcoat](ht
 
 Calibre stays the engine behind it. Reads go straight to the library's `metadata.db` and files. Every change goes through Calibre's own tools: `calibredb` (add, edit, delete), `ebook-convert` (conversion), and `fetch-ebook-metadata` (online metadata). Install [Calibre](https://calibre-ebook.com) on the server. The tools are found on `PATH`, in `/Applications/calibre.app` on macOS, or at `CALIBREDB`, `EBOOK_CONVERT`, and `FETCH_EBOOK_METADATA`. `calibredb` cannot write while the Calibre desktop app has the library open, unless its content server is running.
 
-Accounts, sessions, and shelves live in the app's own `data.db`.
+Accounts, sessions, shelves, and reading positions live in the app's own `data.db`.
 
 ## Configuration
 
 | Variable | Meaning |
 | --- | --- |
 | `CALIBRE_LIBRARY` | The library folder, the one containing `metadata.db`. Default `./library`. |
+| `DATABASE_URL` | The app's own database. Default `sqlite:data.db`. |
 | `CALIBREDB`, `EBOOK_CONVERT`, `FETCH_EBOOK_METADATA` | Paths to the Calibre tools, if not found automatically. |
 | `SMTP_URL` | Mail server for "Send to e-reader", like `smtps://user:pass@smtp.example.com:465`. Without it, mail is written to `mail-outbox/`. |
 | `MAIL_FROM` | Sender address. Allow it in your e-reader's approved senders. |
@@ -31,6 +32,8 @@ Accounts, sessions, and shelves live in the app's own `data.db`.
 | `OIDC_NAME` | The provider's name on the sign-in button. Default `SSO`. |
 | `KOBO_STORE_PROXY` | `1` sends the Kobo requests this app does not answer on to Kobo's store, as calibre-web's "proxy unknown requests to Kobo Store" option does, so the device's store features keep working. Off by default. |
 | `LDAP_URL`, `LDAP_USER_DN` | Turn on LDAP sign-in, like `ldaps://ldap.example.com` and `uid={username},ou=people,dc=example,dc=com`. |
+
+A variable set to an empty value counts as unset.
 
 How each part was tested: library reads, writes, conversion, and online metadata against a real Calibre install; OIDC end to end against a mock provider; Kobo sync and the store proxy by calling the API (the proxy against a mock store), not on a real Kobo device. **LDAP sign-in is untested against a real directory**: only its DN escaping and its refusal of empty passwords have tests.
 
@@ -61,6 +64,32 @@ topcoat dev
 ```
 
 Then open <http://127.0.0.1:3000>.
+
+## Deploying
+
+The `Dockerfile` builds the release binary with its asset bundle, and installs Calibre's command-line tools (`CALIBRE_VERSION`, default 9.18.0) in a Debian image. The container listens on port 3000 and keeps its state in two volumes:
+
+| Path | Contents |
+| --- | --- |
+| `/data` | `data.db` (accounts, sessions, shelves, reading positions), Calibre's settings, and `mail-outbox/`. |
+| `/library` | The Calibre library. The first start on an empty volume creates an empty library. |
+
+The container runs as user 1000. Named volumes get the right owner by themselves; a host folder mounted instead must be writable by that user.
+
+```sh
+docker compose up --build
+```
+
+### On Coolify
+
+1. Create a resource from this Git repository, with the **Docker Compose** build pack. It reads `docker-compose.yml`.
+2. Give the `calibre-ui` service its domain with the container port, like `https://books.example.com:3000`. Coolify serves it over HTTPS, which the session cookie needs.
+3. In the Environment tab, set `PUBLIC_URL` to the same address without the port, like `https://books.example.com`, and any of the optional variables above.
+4. Deploy, then open the site at once and create the admin account: until one exists, whoever opens the site first gets to create it.
+
+To bring an existing library, copy its folder (with `metadata.db`) into the `/library` volume while the app is stopped.
+
+The **Dockerfile** build pack works too: set the exposed port to 3000, and add persistent storage for `/data` and `/library` by hand.
 
 ## Project structure
 
