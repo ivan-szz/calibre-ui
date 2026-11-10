@@ -1,12 +1,13 @@
 # For Coolify's "Docker Compose" build pack, or `docker compose up` anywhere.
-# In Coolify, give the service its domain with the container port, like
-# `https://books.example.com:3000`, and fill the variables in its Environment tab.
+# The app is published on the host's port 3000; set PUBLIC_URL to `http://<host>:3000`.
+# Behind Coolify's proxy instead, replace `ports` with `expose: ["3000"]` and give the
+# service a domain with the container port, like `https://books.example.com:3000`.
 services:
   calibre-ui:
     build: .
     restart: unless-stopped
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
     environment:
       # The app's address as users and devices reach it. Needed for OIDC and for Kobo
       # sync links behind a proxy.
