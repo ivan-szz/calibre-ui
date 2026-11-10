@@ -64,9 +64,44 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
     }
 
     Ok(view! {
-        <article class="grid gap-8 md:grid-cols-[minmax(0,240px)_1fr] lg:gap-12">
-            <div class="mx-auto w-48 md:mx-0 md:w-full">
-                <div class="group">
+        // The book's own cover, blurred into a wash behind its header, so each book
+        // page takes on that book's colours. It bleeds into `main`'s padding.
+        if book.has_cover {
+            <div aria-hidden="true" class="pointer-events-none relative -mx-4 h-0 md:-mx-8">
+                <div class="absolute inset-x-0 -top-8 h-[28rem] overflow-hidden">
+                    <img src=(href!(cover::cover, BookId(id))) alt="" class="size-full scale-125 object-cover opacity-45 blur-3xl saturate-150 dark:opacity-30">
+                    <div class="absolute inset-0 bg-gradient-to-b from-background/20 via-background/60 to-background"></div>
+                </div>
+            </div>
+        }
+        // Phones stack title, cover with actions, then details; wider screens put the
+        // cover column beside both.
+        <article class="relative grid gap-y-8 md:grid-cols-[minmax(0,240px)_1fr] md:grid-rows-[auto_1fr] md:gap-x-8 md:gap-y-6 lg:gap-x-12">
+            // Centred on phones, to line up with the cover under it.
+            <header class="min-w-0 text-center md:col-start-2 md:row-start-1 md:text-left">
+                for series in &book.series {
+                    <a
+                        href=(href!(item_page, Category(Kind::Series), ItemId(series.id.clone())))
+                        class="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+                    >
+                        icon(data: iconify_icon!("lucide:layers"))
+                        (t!(book_of_series, number = series_number(book.series_index), series = series.name.as_str()))
+                    </a>
+                }
+                <h1 class="font-serif text-4xl font-medium text-balance md:text-5xl md:leading-tight">(&book.title)</h1>
+                <p class="mt-3 text-lg text-muted-foreground">
+                    (t!(by)) " "
+                    item_links(kind: Kind::Authors, items: book.authors.clone())
+                </p>
+                match rating {
+                    Some(stars) => <p class="mt-3 text-lg tracking-widest text-gilt" aria-label=(t!(rating))>(stars)</p>,
+                    None => "",
+                }
+            </header>
+
+            // On phones the actions span the screen; only the cover stays narrow.
+            <div class="md:col-start-1 md:row-span-2 md:row-start-1">
+                <div class="group mx-auto w-48 md:w-full">
                     book_cover(id: book.id, title: book.title.clone(), has_cover: book.has_cover)
                 </div>
                 if can_download && !readable.is_empty() {
@@ -78,11 +113,27 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                             >
                                 icon(data: iconify_icon!("lucide:book-open-text"))
                                 match percent {
-                                    Some(percent) if *percent > 0 => <span>(t!(continue_reading)) " · " (percent) "%"</span>,
+                                    Some(1..) => <span>(t!(continue_reading))</span>,
                                     _ => <span>(t!(read_book))</span>,
                                 }
                                 " " (if readable.len() > 1 { *format } else { "" })
                             </a>
+                            match percent {
+                                Some(percent) if *percent > 0 => <div class="mb-2 flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+                                    <div
+                                        role="progressbar"
+                                        aria-valuemin="0"
+                                        aria-valuemax="100"
+                                        aria-valuenow=(percent)
+                                        aria-label=(t!(percent_read, percent = *percent))
+                                        class="h-1 flex-1 overflow-hidden rounded-full bg-foreground/10"
+                                    >
+                                        <div class="h-full rounded-full bg-gilt" style=(format!("width: {percent}%"))></div>
+                                    </div>
+                                    (percent) "%"
+                                </div>,
+                                _ => "",
+                            }
                         }
                     </div>
                 }
@@ -94,7 +145,7 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                     </a>
                 }
                 if can_download && !book.formats.is_empty() {
-                    <h2 class="mt-6 mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">(t!(download))</h2>
+                    <h2 class="mt-6 mb-2 text-sm text-muted-foreground">(t!(download))</h2>
                     <ul class="space-y-2">
                         for format in &book.formats {
                             <li>
@@ -115,28 +166,9 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                 }
             </div>
 
-            <div class="min-w-0">
-                for series in &book.series {
-                    <a
-                        href=(href!(item_page, Category(Kind::Series), ItemId(series.id.clone())))
-                        class="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-                    >
-                        icon(data: iconify_icon!("lucide:layers"))
-                        (t!(book_of_series, number = series_number(book.series_index), series = series.name.as_str()))
-                    </a>
-                }
-                <h1 class="text-3xl font-semibold tracking-tight text-balance md:text-4xl">(&book.title)</h1>
-                <p class="mt-3 text-lg text-muted-foreground">
-                    (t!(by)) " "
-                    item_links(kind: Kind::Authors, items: book.authors.clone())
-                </p>
-                match rating {
-                    Some(stars) => <p class="mt-3 text-lg tracking-widest text-amber-500" aria-label=(t!(rating))>(stars)</p>,
-                    None => "",
-                }
-
+            <div class="min-w-0 md:col-start-2 md:row-start-2">
                 if !book.tags.is_empty() {
-                    <ul class="mt-5 flex flex-wrap gap-2">
+                    <ul class="mb-8 flex flex-wrap gap-2">
                         for tag in &book.tags {
                             <li>
                                 <a
@@ -150,7 +182,7 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                     </ul>
                 }
 
-                <dl class="mt-8 grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 text-sm">
+                <dl class="grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 text-sm">
                     if !book.publishers.is_empty() {
                         <dt class="text-muted-foreground">(t!(publisher))</dt>
                         <dd>item_links(kind: Kind::Publishers, items: book.publishers.clone())</dd>

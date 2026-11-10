@@ -19,7 +19,7 @@ pub async fn page(cx: &topcoat::context::Cx) -> Result<impl View> {
     Ok(view! {
         <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">(t!(nav_discover))</h1>
+                <h1 class="font-serif text-3xl font-medium md:text-4xl">(t!(nav_discover))</h1>
                 <p class="mt-1 text-sm text-muted-foreground">(t!(discover_subtitle))</p>
             </div>
             <a href="" class=(button_variants(ButtonVariant::Outline, ButtonSize::Sm))>

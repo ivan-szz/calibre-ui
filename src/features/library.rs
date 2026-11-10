@@ -659,15 +659,88 @@ pub fn strip_html(html: &str) -> Vec<String> {
             (None, _) => {}
         }
     }
-    let text = text
-        .replace("&nbsp;", " ")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&amp;", "&");
+    let text = decode_entities(&text);
     text.lines().map(str::trim).filter(|l| !l.is_empty()).map(str::to_owned).collect()
+}
+
+/// Decodes character references in one pass: numeric ones (`&#8212;`, `&#x2014;`) and
+/// the named ones book descriptions use. Unknown references stay as written.
+fn decode_entities(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(i) = rest.find('&') {
+        out.push_str(&rest[..i]);
+        rest = &rest[i..];
+        let decoded = rest[1..].find(';').filter(|&end| end <= 10).and_then(|end| {
+            let name = &rest[1..1 + end];
+            let c = match name.strip_prefix('#') {
+                Some(num) => match num.strip_prefix(['x', 'X']) {
+                    Some(hex) => u32::from_str_radix(hex, 16).ok(),
+                    None => num.parse().ok(),
+                }
+                .and_then(char::from_u32),
+                None => named_entity(name),
+            }?;
+            Some((c, end + 2))
+        });
+        match decoded {
+            Some((c, len)) => {
+                out.push(c);
+                rest = &rest[len..];
+            }
+            None => {
+                out.push('&');
+                rest = &rest[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// shortcut: only the named entities common in descriptions; add more if one shows up raw.
+fn named_entity(name: &str) -> Option<char> {
+    Some(match name {
+        "amp" => '&',
+        "lt" => '<',
+        "gt" => '>',
+        "quot" => '"',
+        "apos" => '\'',
+        // Turned into a plain space, since paragraphs are trimmed.
+        "nbsp" => ' ',
+        "mdash" => '—',
+        "ndash" => '–',
+        "hellip" => '…',
+        "lsquo" => '‘',
+        "rsquo" => '’',
+        "ldquo" => '“',
+        "rdquo" => '”',
+        "laquo" => '«',
+        "raquo" => '»',
+        "middot" => '·',
+        "bull" => '•',
+        "deg" => '°',
+        "copy" => '©',
+        "euro" => '€',
+        "agrave" => 'à',
+        "aacute" => 'á',
+        "egrave" => 'è',
+        "eacute" => 'é',
+        "igrave" => 'ì',
+        "iacute" => 'í',
+        "ograve" => 'ò',
+        "oacute" => 'ó',
+        "ugrave" => 'ù',
+        "uacute" => 'ú',
+        "Agrave" => 'À',
+        "Egrave" => 'È',
+        "Eacute" => 'É',
+        "Igrave" => 'Ì',
+        "Ograve" => 'Ò',
+        "Ugrave" => 'Ù',
+        "ccedil" => 'ç',
+        _ => return None,
+    })
 }
 
 #[cfg(test)]
@@ -680,6 +753,13 @@ mod tests {
             strip_html("<p>One &amp; <b>two</b></p><div>three<br/>four</div><script>alert(1)</script>"),
             ["One & two", "three", "four"]
         );
+    }
+
+    #[test]
+    fn decodes_character_references() {
+        assert_eq!(decode_entities("a&#8212;b &#x2014; perch&eacute; &rsquo;"), "a—b — perché ’");
+        // One pass: an escaped reference stays a reference; unknown or bare ones stay.
+        assert_eq!(decode_entities("&amp;lt; &bogus; AT&T &#xZZ;"), "&lt; &bogus; AT&T &#xZZ;");
     }
 
     #[test]

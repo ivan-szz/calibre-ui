@@ -15,7 +15,7 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
     let title = t!(search_results, query = q.trim()).resolve(cx).into_owned();
     Ok(view! {
         if q.trim().is_empty() {
-            <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">(t!(search_title))</h1>
+            <h1 class="font-serif text-3xl font-medium md:text-4xl">(t!(search_title))</h1>
             <p class="mt-2 text-muted-foreground">(t!(search_hint))</p>
         } else {
             book_list(title: title, filter: Filter::Search(&q), default_sort: "title")

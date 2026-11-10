@@ -9,10 +9,14 @@ use topcoat::{
     view::{Child, Length, View, attributes, class, component, view},
 };
 
-use super::books::book_id::{BookId, cover::cover as cover_route, page as book_page};
+use super::books::book_id::{BookId, cover::cover as cover_route, page as book_page, read};
 use crate::{
     components::button::{ButtonSize, ButtonVariant, button},
-    features::library::{self, BookSummary, Filter, PAGE_SIZE, SORTS},
+    features::{
+        library::{self, BookSummary, Filter, PAGE_SIZE, SORTS},
+        reader::ReadingPosition,
+        shelf::ReadMark,
+    },
     t,
 };
 
@@ -106,7 +110,7 @@ pub async fn heading(
 ) -> Result<impl View> {
     Ok(view! {
         <div>
-            <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">(title)</h1>
+            <h1 class="font-serif text-3xl font-medium md:text-4xl">(title)</h1>
             if !subtitle.is_empty() {
                 <p class="mt-1 text-sm text-muted-foreground">(subtitle)</p>
             }
@@ -141,16 +145,17 @@ pub async fn book_list(
     Ok(view! {
         <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">(title)</h1>
+                <h1 class="font-serif text-3xl font-medium md:text-4xl">(title)</h1>
                 <p class="mt-1 text-sm text-muted-foreground">(t!(book_count, count = total))</p>
             </div>
-            <nav aria-label=(t!(sort_label)) class="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1">
+            // One row that scrolls sideways when it does not fit, like the top navigation.
+            <nav aria-label=(t!(sort_label)) class="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1 [scrollbar-width:none]">
                 for key in SORTS {
                     <a
                         href=(sort_href(query.q.as_deref(), key))
                         aria-current=((sort == key).then_some("true"))
                         class=(class!(
-                            "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                            "shrink-0 rounded-md px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors",
                             "bg-primary text-primary-foreground" if sort == key,
                             "text-muted-foreground hover:bg-foreground/5 hover:text-foreground" if sort != key,
                         ))
@@ -206,7 +211,7 @@ pub async fn book_grid(books: Vec<BookSummary>) -> Result<impl View> {
                             <p class="mt-0.5 line-clamp-1 text-xs text-muted-foreground">(&book.authors)</p>
                             match &book.series {
                                 Some(series) => <p class="mt-0.5 line-clamp-1 text-xs text-muted-foreground/80">
-                                    (series) " · #" (series_number(book.series_index))
+                                    (series) " #" (series_number(book.series_index))
                                 </p>,
                                 None => "",
                             }
@@ -223,28 +228,98 @@ pub fn series_number(index: f64) -> String {
     if index.fract() == 0.0 { format!("{index:.0}") } else { index.to_string() }
 }
 
-/// A book cover at a 2:3 ratio. Books without a cover get a generated one.
+/// Bookcloth colours for generated covers: green, oxblood, navy, ochre, slate, plum.
+const CLOTH: [&str; 6] = ["#2f5446", "#6b2c2c", "#273a5c", "#7d5f26", "#46525c", "#553653"];
+
+/// A book cover at a 2:3 ratio. Books without a cover get a clothbound one, with the
+/// title in gilt inside a blind-stamped frame.
 #[component]
 pub async fn cover(id: i64, title: String, has_cover: bool) -> Result<impl View> {
-    // Spread the placeholder hues so neighbouring books differ.
-    let hue = (id * 47) % 360;
+    // Consecutive ids get different cloths, so neighbouring books differ.
+    let cloth = CLOTH[id.rem_euclid(CLOTH.len() as i64) as usize];
     Ok(view! {
-        <div class="aspect-[2/3] overflow-hidden rounded-lg shadow-sm ring-1 ring-border transition duration-200 group-hover:-translate-y-1 group-hover:shadow-lg">
+        <div class="@container aspect-[2/3] overflow-hidden rounded-[3px] shadow-sm ring-1 ring-foreground/10 transition-shadow group-hover:ring-2 group-hover:ring-primary group-focus-visible:ring-2 group-focus-visible:ring-ring">
             if has_cover {
                 <img src=(href!(cover_route, BookId(id))) alt="" loading="lazy" class="size-full bg-foreground/5 object-cover">
             } else {
                 <div
-                    class="flex size-full flex-col justify-between p-4 text-white"
-                    style=(format!(
-                        "background: linear-gradient(155deg, oklch(0.6 0.12 {hue}), oklch(0.36 0.09 {}))",
-                        hue + 40
-                    ))
+                    class="relative flex size-full items-center justify-center px-5 text-center"
+                    style=(format!("background-color: {cloth}; box-shadow: inset 0 0 40px rgb(0 0 0 / 25%)"))
                 >
-                    <span class="line-clamp-6 text-base leading-tight font-semibold [text-shadow:0_1px_2px_rgb(0_0_0/30%)]">(title)</span>
-                    <span class="opacity-70">icon(data: iconify_icon!("lucide:book"), size: Length::px(20.0))</span>
+                    <span aria-hidden="true" class="absolute inset-y-0 left-2 w-px bg-black/30"></span>
+                    // Thumbnails keep only the cloth and spine; the frame and title need room.
+                    <span aria-hidden="true" class="absolute inset-y-3 right-3 left-5 hidden rounded-[2px] border border-[#e8c983]/35 @[6rem]:block"></span>
+                    <span class="relative line-clamp-5 hidden font-serif text-[15px] leading-snug font-medium text-balance text-[#ecd193] @[6rem]:block">(title)</span>
                 </div>
             }
         </div>
+    })
+}
+
+/// The books the user is partway through, most recently read first, each opening
+/// straight into the reader where they left off. Only on the first page of a list.
+#[component]
+pub async fn continue_reading(cx: &Cx) -> Result<impl View> {
+    let user_id = super::signed_in(cx).await?.id;
+    let first_page = query_params::<ListQuery>(cx)?.page.unwrap_or(1) <= 1;
+    let read = ReadMark::book_ids(cx, user_id).await?;
+    let mut positions = ReadingPosition::in_progress(cx, user_id).await?;
+    positions.retain(|p| !read.contains(&p.book_id));
+    positions.truncate(6);
+    let ids: Vec<u64> = positions.iter().map(|p| p.book_id).collect();
+    let books = if first_page && !ids.is_empty() {
+        library::books(&Filter::Ids(&ids), "new", 1, &super::hidden_tags(cx).await)?.0
+    } else {
+        Vec::new()
+    };
+    // Back in reading order; books hidden from the user drop out here.
+    let items: Vec<(BookSummary, String, u64)> = positions
+        .iter()
+        .filter_map(|p| {
+            let book = books.iter().find(|b| b.id as u64 == p.book_id)?.clone();
+            Some((book, p.format.to_lowercase(), p.percent))
+        })
+        .collect();
+
+    Ok(view! {
+        if !items.is_empty() {
+            <section aria-labelledby="reading-now" class="mb-12">
+                <h2 id="reading-now" class="mb-4 font-serif text-xl font-medium">(t!(reading_now))</h2>
+                // Phones scroll the row sideways, so the library stays near the top.
+                <ul class="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 xl:grid-cols-3">
+                    #[key(book.id)]
+                    for (book, format, percent) in items {
+                        <li class="w-[85%] shrink-0 snap-start sm:w-auto">
+                            <a
+                                href=(href!(read::page, BookId(book.id)).resolve(cx) + "?format=" + &format)
+                                class="group flex items-center gap-4 rounded-md border border-border bg-card p-3 outline-none transition-colors hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                                <div class="w-14 shrink-0">
+                                    cover(id: book.id, title: book.title.clone(), has_cover: book.has_cover)
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="line-clamp-2 font-serif leading-snug font-medium">(&book.title)</p>
+                                    <p class="mt-0.5 line-clamp-1 text-xs text-muted-foreground">(&book.authors)</p>
+                                    <div class="mt-3 flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+                                        <div
+                                            role="progressbar"
+                                            aria-valuemin="0"
+                                            aria-valuemax="100"
+                                            aria-valuenow=(percent)
+                                            aria-label=(t!(percent_read, percent))
+                                            class="h-1 flex-1 overflow-hidden rounded-full bg-foreground/10"
+                                        >
+                                            <div class="h-full rounded-full bg-gilt" style=(format!("width: {percent}%"))></div>
+                                        </div>
+                                        (percent) "%"
+                                    </div>
+                                </div>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
     })
 }
 

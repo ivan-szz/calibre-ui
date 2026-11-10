@@ -32,7 +32,7 @@ use topcoat::{
     runtime::RouterBuilderRuntimeExt,
     session::RouterBuilderSessionExt,
     tailwind,
-    view::{View, attributes, class, component, view},
+    view::{Length, View, attributes, class, component, view},
 };
 
 use crate::{
@@ -51,6 +51,9 @@ use browse::category::Category;
 
 /// The Geist font family, loaded from Fontsource.
 const GEIST: Font = fontsource_font!(GEIST, weight: [400, 500, 600, 700], style: Normal);
+
+/// Literata, for book titles and page headings.
+const LITERATA: Font = fontsource_font!(LITERATA, weight: [400, 500, 600], style: Normal, subset: [Latin, LatinExt]);
 
 /// The interface languages, from `src/l10n`. The first is the fallback.
 const LOCALES: [Locale; 2] = [locale!("en"), locale!("it")];
@@ -132,6 +135,7 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 <link rel="stylesheet" href=(tailwind::stylesheet!())>
                 <link rel="search" type="application/opensearchdescription+xml" href="/opds/osd">
                 topcoat::font::link(font: GEIST)
+                topcoat::font::link(font: LITERATA)
                 topcoat::runtime::script()
                 topcoat::dev::script()
             </head>
@@ -144,10 +148,8 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                     </main>,
                     Some(user) => {
                         <aside class="border-b border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:flex md:h-screen md:w-60 md:shrink-0 md:flex-col md:overflow-y-auto md:border-r md:border-b-0">
-                            <a href=(href!(home)) class="flex items-center gap-2 px-5 pt-5 pb-3 text-lg font-semibold tracking-tight">
-                                <span class="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-                                    icon(data: iconify_icon!("lucide:library-big"))
-                                </span>
+                            <a href=(href!(home)) class="flex items-center gap-2.5 px-5 pt-5 pb-3 font-serif text-xl font-medium">
+                                <span class="text-sidebar-primary">icon(data: iconify_icon!("lucide:library-big"), size: Length::px(22.0))</span>
                                 (t!(app_name))
                             </a>
                             <nav class="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:pb-4">
@@ -159,7 +161,7 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                                 if user.can(Perm::Upload) {
                                     nav_link(target: href!(upload::page).resolve(cx), data: iconify_icon!("lucide:upload"), label: t!(nav_upload))
                                 }
-                                <p class="hidden px-3 pt-5 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase md:block">(t!(nav_browse))</p>
+                                <p class="hidden px-3 pt-5 pb-1 text-xs text-muted-foreground md:block">(t!(nav_browse))</p>
                                 #[key(kind.to_string())]
                                 for kind in Kind::ALL {
                                     nav_link(
@@ -168,7 +170,7 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                                         label: kind_label(kind),
                                     )
                                 }
-                                <p class="hidden px-3 pt-5 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase md:block">(t!(nav_you))</p>
+                                <p class="hidden px-3 pt-5 pb-1 text-xs text-muted-foreground md:block">(t!(nav_you))</p>
                                 nav_link(target: href!(tasks::page).resolve(cx), data: iconify_icon!("lucide:list-checks"), label: t!(nav_tasks))
                                 nav_link(target: href!(account::page).resolve(cx), data: iconify_icon!("lucide:user-round"), label: t!(nav_account))
                                 if user.admin {
@@ -222,8 +224,8 @@ async fn nav_link(cx: &Cx, target: String, data: IconData, label: Translation<'s
             class=(class!(
                 "flex shrink-0 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 "hover:bg-sidebar-accent",
-                "bg-sidebar-accent text-sidebar-accent-foreground" if current,
-                "text-sidebar-foreground/80" if !current,
+                "bg-sidebar-accent text-sidebar-accent-foreground [&>svg]:text-sidebar-primary" if current,
+                "text-sidebar-foreground/75" if !current,
             ))
         >
             icon(data: data)
@@ -262,6 +264,7 @@ pub fn kind_label(kind: Kind) -> Translation<'static> {
 #[page]
 async fn home(cx: &Cx) -> Result<impl View> {
     Ok(view! {
+        ui::continue_reading()
         ui::book_list(title: t!(nav_books).resolve(cx).into_owned(), filter: Filter::All, default_sort: "new")
     })
 }

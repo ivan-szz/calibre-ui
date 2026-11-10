@@ -1,4 +1,8 @@
-/* Neutral, the built-in Topcoat theme.
+/* "Cloth and gilt": the colours of a clothbound book. Cool paper, ink, bottle-green
+   cloth for actions, and gilt only where the reader's own progress shows (ratings,
+   how far through a book). Started from Topcoat's Neutral theme.
+
+     --gilt                    ratings, reading progress, the titles on generated covers
 
    The theme is a small set of design tokens. Components refer to tokens only,
    never to raw colors, so a project restyles itself by editing the values in
@@ -53,6 +57,9 @@
    and `.dark` is what lets the values swap when the color scheme changes. */
 @theme inline {
   --font-sans: "Geist", sans-serif;
+  /* Book titles and page headings: a typeface drawn for reading on screens. */
+  --font-serif: "Literata", Georgia, serif;
+  --color-gilt: var(--gilt);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -79,57 +86,59 @@
 }
 
 :root {
-  --background: oklch(0.9875 0.003 260);
-  --foreground: oklch(0.24 0.012 260);
-  --card: oklch(0.995 0.003 260);
-  --card-foreground: oklch(0.24 0.012 260);
-  --popover: oklch(0.995 0.003 260);
-  --popover-foreground: oklch(0.24 0.012 260);
-  --muted-foreground: oklch(0.51 0.014 260);
-  --primary: oklch(0.48 0.17 268);
-  --primary-foreground: oklch(0.985 0.01 268);
-  --destructive: oklch(0.55 0.2 27);
+  --background: #f6f7f5;
+  --foreground: #1e2421;
+  --card: #fbfcfa;
+  --card-foreground: #1e2421;
+  --popover: #fbfcfa;
+  --popover-foreground: #1e2421;
+  --muted-foreground: #5f6863;
+  --primary: #24493b;
+  --primary-foreground: #f1f5f2;
+  --destructive: oklch(0.52 0.18 27);
   --destructive-foreground: oklch(0.99 0.012 27);
-  --border: oklch(0.9 0.008 260);
-  --ring: oklch(0.55 0.17 268);
-  --sidebar: oklch(0.97 0.006 268);
-  --sidebar-foreground: oklch(0.24 0.012 260);
-  --sidebar-primary: oklch(0.48 0.17 268);
-  --sidebar-primary-foreground: oklch(0.985 0.003 260);
-  --sidebar-accent: color-mix(in oklab, var(--sidebar-foreground) 10%, var(--sidebar));
-  --sidebar-accent-foreground: oklch(0.24 0.012 260);
-  --sidebar-border: oklch(0.9 0.008 260);
-  --sidebar-ring: oklch(0.32 0.02 260);
-  --shadow-xs: 0 1px 2px oklch(0.24 0.02 260 / 12%);
+  --border: #dde2de;
+  --ring: #2f6b55;
+  --gilt: #9a7029;
+  --sidebar: #edf0ed;
+  --sidebar-foreground: #1e2421;
+  --sidebar-primary: #24493b;
+  --sidebar-primary-foreground: #f1f5f2;
+  --sidebar-accent: color-mix(in oklab, var(--sidebar-primary) 12%, var(--sidebar));
+  --sidebar-accent-foreground: #1e2421;
+  --sidebar-border: #dde2de;
+  --sidebar-ring: #2f6b55;
+  --shadow-xs: 0 1px 2px rgb(30 36 33 / 12%);
   --shadow-sm:
-    0 1px 2px oklch(0.24 0.02 260 / 10%),
-    0 2px 8px -2px oklch(0.24 0.02 260 / 9%);
+    0 1px 2px rgb(30 36 33 / 10%),
+    0 2px 8px -2px rgb(30 36 33 / 9%);
 }
 
 /* Follows the system color scheme. */
 @media (prefers-color-scheme: dark) {
 :root {
-  --background: oklch(0.17 0.012 260);
-  --foreground: oklch(0.93 0.006 260);
-  --card: oklch(0.22 0.012 260);
-  --card-foreground: oklch(0.93 0.006 260);
-  --popover: oklch(0.22 0.012 260);
-  --popover-foreground: oklch(0.93 0.006 260);
-  --muted-foreground: oklch(0.68 0.012 260);
-  --primary: oklch(0.72 0.13 268);
-  --primary-foreground: oklch(0.17 0.03 268);
+  --background: #131916;
+  --foreground: #e2e7e3;
+  --card: #1a211d;
+  --card-foreground: #e2e7e3;
+  --popover: #1a211d;
+  --popover-foreground: #e2e7e3;
+  --muted-foreground: #97a19b;
+  --primary: #8cc2a8;
+  --primary-foreground: #0f1a15;
   --destructive: oklch(0.66 0.18 25);
   --destructive-foreground: oklch(0.14 0.02 25);
-  --border: oklch(0.3 0.012 260);
-  --ring: oklch(0.72 0.13 268);
-  --sidebar: oklch(0.2 0.014 265);
-  --sidebar-foreground: oklch(0.93 0.006 260);
-  --sidebar-primary: oklch(0.72 0.13 268);
-  --sidebar-primary-foreground: oklch(0.21 0.015 260);
-  --sidebar-accent: color-mix(in oklab, var(--sidebar-foreground) 10%, var(--sidebar));
-  --sidebar-accent-foreground: oklch(0.93 0.006 260);
-  --sidebar-border: oklch(0.3 0.012 260);
-  --sidebar-ring: oklch(0.6 0.02 260);
+  --border: #29322d;
+  --ring: #8cc2a8;
+  --gilt: #d4a957;
+  --sidebar: #0f1411;
+  --sidebar-foreground: #e2e7e3;
+  --sidebar-primary: #8cc2a8;
+  --sidebar-primary-foreground: #0f1a15;
+  --sidebar-accent: color-mix(in oklab, var(--sidebar-primary) 14%, var(--sidebar));
+  --sidebar-accent-foreground: #e2e7e3;
+  --sidebar-border: #222a25;
+  --sidebar-ring: #8cc2a8;
   --shadow-xs: 0 1px 2px oklch(0 0 0 / 35%);
   --shadow-sm:
     0 1px 2px oklch(0 0 0 / 35%),

@@ -37,6 +37,13 @@ impl ReadingPosition {
             .await?)
     }
 
+    /// The books the user has started and not finished, most recently read first, with
+    /// the format and percent of their latest position. `save` replaces the row, so a
+    /// higher id is a more recent position.
+    pub async fn in_progress(cx: &Cx, user_id: u64) -> Result<Vec<ReadingPosition>> {
+        Ok(latest_unfinished(ReadingPosition::filter_by_user_id(user_id).exec(&mut db(cx)).await?))
+    }
+
     pub async fn save(cx: &Cx, user_id: u64, book_id: u64, format: &str, position: String, percent: u64) -> Result<()> {
         let mut db = db(cx);
         ReadingPosition::filter_by_user_id(user_id)
@@ -50,6 +57,33 @@ impl ReadingPosition {
             .exec(&mut db)
             .await?;
         Ok(())
+    }
+}
+
+/// The newest position of each book, newest first, keeping the books neither unstarted
+/// nor finished. With several formats, the most recently read one decides.
+fn latest_unfinished(mut positions: Vec<ReadingPosition>) -> Vec<ReadingPosition> {
+    positions.sort_by(|a, b| b.id.cmp(&a.id));
+    let mut seen = std::collections::HashSet::new();
+    positions.retain(|p| seen.insert(p.book_id));
+    positions.retain(|p| (1..100).contains(&p.percent));
+    positions
+}
+
+#[cfg(test)]
+mod in_progress_tests {
+    use super::*;
+
+    fn at(id: u64, book_id: u64, percent: u64) -> ReadingPosition {
+        ReadingPosition { id, user_id: 1, book_id, format: "EPUB".into(), position: String::new(), percent }
+    }
+
+    #[test]
+    fn keeps_latest_unfinished_newest_first() {
+        let kept = latest_unfinished(vec![at(1, 10, 30), at(2, 20, 100), at(3, 30, 50), at(4, 10, 60), at(5, 40, 0)]);
+        let got: Vec<(u64, u64)> = kept.iter().map(|p| (p.book_id, p.percent)).collect();
+        // Book 10's newer 60% wins over its 30%; 20 is finished and 40 not started.
+        assert_eq!(got, [(10, 60), (30, 50)]);
     }
 }
 

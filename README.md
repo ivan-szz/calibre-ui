@@ -27,6 +27,7 @@ Accounts, sessions, shelves, and reading positions live in the app's own `data.d
 | `SMTP_URL` | Mail server for "Send to e-reader", like `smtps://user:pass@smtp.example.com:465`. Without it, mail is written to `mail-outbox/`. |
 | `MAIL_FROM` | Sender address. Allow it in your e-reader's approved senders. |
 | `HOST`, `PORT` | Where to listen. Default `127.0.0.1:3000`. |
+| `SECURE_COOKIES` | `true` makes the session cookie `Secure` (HTTPS only). Default `false`. |
 | `PUBLIC_URL` | The app's address as users and devices reach it, like `https://books.example.com`. Needed for OIDC; used in Kobo sync links (otherwise taken from the request). |
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Turn on "Sign in with…" through an OpenID Connect provider. Register `{PUBLIC_URL}/login/oidc/callback` as its redirect URI. |
 | `OIDC_NAME` | The provider's name on the sign-in button. Default `SSO`. |
@@ -37,7 +38,7 @@ A variable set to an empty value counts as unset.
 
 How each part was tested: library reads, writes, conversion, and online metadata against a real Calibre install; OIDC end to end against a mock provider; Kobo sync and the store proxy by calling the API (the proxy against a mock store), not on a real Kobo device. **LDAP sign-in is untested against a real directory**: only its DN escaping and its refusal of empty passwords have tests.
 
-Sessions use a `Secure` cookie, so serve the app over HTTPS (or on `localhost`).
+The session cookie works over plain HTTP, for private networks such as a homelab behind a VPN. Set `SECURE_COOKIES=true` to make it `Secure` and `__Host-` prefixed when the app is served over HTTPS.
 
 ```sh
 CALIBRE_LIBRARY=~/Calibre\ Library topcoat dev

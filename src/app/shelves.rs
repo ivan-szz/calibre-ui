@@ -9,14 +9,17 @@ use topcoat::{
     view::{View, attributes, view},
 };
 
-use super::signed_in;
+use super::{hidden_tags, signed_in, ui::cover};
 use crate::t;
 use crate::{
     components::{
         button::{ButtonSize, ButtonVariant, button},
         input::input,
     },
-    features::shelf::Shelf,
+    features::{
+        library::{self, Filter},
+        shelf::Shelf,
+    },
 };
 use shelf_id::ShelfId;
 
@@ -27,7 +30,7 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
     let revision = signal(cx, || 0u32);
 
     Ok(view! {
-        <h1 class="text-2xl font-semibold tracking-tight md:text-3xl">(t!(nav_shelves))</h1>
+        <h1 class="font-serif text-3xl font-medium md:text-4xl">(t!(nav_shelves))</h1>
         <p class="mt-1 text-sm text-muted-foreground">(t!(shelves_subtitle))</p>
         <form
             class="mt-6 flex max-w-md gap-2"
@@ -57,45 +60,53 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
 #[shard]
 pub async fn shelf_list(cx: &Cx, revision: Signal<u32>) -> Result<impl View> {
     let _ = revision.get();
+    let hidden = hidden_tags(cx).await;
     let mut shelves = Vec::new();
     for shelf in Shelf::list(cx, signed_in(cx).await?.id).await? {
-        let count = Shelf::book_ids(cx, shelf.id).await?.len();
-        shelves.push((shelf, count));
+        let ids = Shelf::book_ids(cx, shelf.id).await?;
+        // The first few books, standing on the shelf as a preview.
+        let preview = library::books(&Filter::Ids(&ids), "title", 1, &hidden)?.0.into_iter().take(5).collect::<Vec<_>>();
+        shelves.push((shelf, ids.len(), preview));
     }
 
     Ok(view! {
         if shelves.is_empty() {
             <p class="mt-8 text-muted-foreground">(t!(no_shelves))</p>
         } else {
-            <ul class="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <ul class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 #[key(shelf.id)]
-                for (shelf, count) in shelves {
+                for (shelf, count, preview) in shelves {
                     let id = shelf.id;
-                    <li class="flex items-center gap-2 rounded-xl border border-border bg-card p-2 pl-4 shadow-xs">
-                        <a href=(href!(shelf_id::page, ShelfId(id))) class="flex min-w-0 flex-1 items-center gap-3 py-1">
-                            <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-foreground/5">
-                                icon(data: iconify_icon!("lucide:bookmark"))
-                            </span>
-                            <span class="min-w-0">
-                                <span class="block truncate text-sm font-medium">(&shelf.name)</span>
-                                <span class="block text-xs text-muted-foreground">
-                                    (t!(book_count, count))
-                                </span>
-                            </span>
+                    <li class="relative rounded-md border border-border bg-card p-4 transition-colors has-[a:hover]:border-primary/60 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
+                        // The covers stand on a plank: the border under them.
+                        <div class="flex h-24 items-end gap-1.5 border-b-2 border-foreground/15 px-1 pr-10">
+                            if preview.is_empty() {
+                                <div class="mb-px h-16 w-11 rounded-[3px] border border-dashed border-foreground/20"></div>
+                            }
+                            #[key(book.id)]
+                            for book in preview {
+                                <div class="w-12 shrink-0">cover(id: book.id, title: book.title.clone(), has_cover: book.has_cover)</div>
+                            }
+                        </div>
+                        <a href=(href!(shelf_id::page, ShelfId(id))) class="mt-3 block outline-none after:absolute after:inset-0">
+                            <span class="block truncate font-serif text-lg font-medium">(&shelf.name)</span>
+                            <span class="block text-xs text-muted-foreground">(t!(book_count, count))</span>
                         </a>
-                        button(
-                            variant: ButtonVariant::Ghost,
-                            size: ButtonSize::Icon,
-                            attrs: attributes! {
-                                aria-label=(t!(delete_shelf_named, name = shelf.name.as_str()))
-                                title=(t!(delete_shelf))
-                                @click=$(async |_e: Event| {
-                                    remove(id).await;
-                                    revision.increment();
-                                })
-                            },
-                            icon(data: iconify_icon!("lucide:trash-2"))
-                        )
+                        <div class="absolute top-2 right-2 z-10">
+                            button(
+                                variant: ButtonVariant::Ghost,
+                                size: ButtonSize::Icon,
+                                attrs: attributes! {
+                                    aria-label=(t!(delete_shelf_named, name = shelf.name.as_str()))
+                                    title=(t!(delete_shelf))
+                                    @click=$(async |_e: Event| {
+                                        remove(id).await;
+                                        revision.increment();
+                                    })
+                                },
+                                icon(data: iconify_icon!("lucide:trash-2"))
+                            )
+                        </div>
                     </li>
                 }
             </ul>

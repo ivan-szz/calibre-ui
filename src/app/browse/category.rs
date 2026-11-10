@@ -19,7 +19,7 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
     let kind = *path_param::<Category>(cx)?;
     let items = library::items(kind, &crate::app::hidden_tags(cx).await)?;
     Ok(view! {
-        <h1 class="flex items-center gap-3 text-2xl font-semibold tracking-tight md:text-3xl">
+        <h1 class="flex items-center gap-3 font-serif text-3xl font-medium md:text-4xl">
             <span class="text-muted-foreground">icon(data: kind_icon(kind))</span>
             (kind_label(kind))
         </h1>
