@@ -148,10 +148,21 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                     </main>,
                     Some(user) => {
                         <aside class="border-b border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:flex md:h-screen md:w-60 md:shrink-0 md:flex-col md:overflow-y-auto md:border-r md:border-b-0">
-                            <a href=(href!(home)) class="flex items-center gap-2.5 px-5 pt-5 pb-3 font-serif text-xl font-medium">
-                                <span class="text-sidebar-primary">icon(data: iconify_icon!("lucide:library-big"), size: Length::px(22.0))</span>
-                                (t!(app_name))
-                            </a>
+                            <div class="flex items-center justify-between pr-3 md:pr-0">
+                                <a href=(href!(home)) class="flex items-center gap-2.5 px-5 pt-5 pb-3 font-serif text-xl font-medium">
+                                    <span class="text-sidebar-primary">icon(data: iconify_icon!("lucide:library-big"), size: Length::px(22.0))</span>
+                                    (t!(app_name))
+                                </a>
+                                // Phones have no sidebar footer, so signing out lives up here.
+                                <form method="post" action=(href!(login::logout::logout)) class="pt-2 md:hidden">
+                                    button(
+                                        variant: ButtonVariant::Ghost,
+                                        size: ButtonSize::Icon,
+                                        attrs: attributes! { type="submit" title=(t!(sign_out)) aria-label=(t!(sign_out)) },
+                                        icon(data: iconify_icon!("lucide:log-out"))
+                                    )
+                                </form>
+                            </div>
                             <nav class="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:pb-4">
                                 nav_link(target: href!(home).resolve(cx), data: iconify_icon!("lucide:book-open"), label: t!(nav_books))
                                 nav_link(target: href!(discover::page).resolve(cx), data: iconify_icon!("lucide:sparkles"), label: t!(nav_discover))
