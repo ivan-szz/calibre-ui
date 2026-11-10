@@ -73,7 +73,7 @@ impl ButtonSize {
     /// Classes for the button dimensions. Text size stays the same across sizes.
     fn classes(self) -> StaticClass {
         match self {
-            Self::Sm => class!("h-8 gap-1.5 rounded-md px-3"),
+            Self::Sm => class!("h-8 gap-1.5 rounded-lg px-3"),
             Self::Md => class!("h-9 gap-2 rounded-lg px-4"),
             Self::Lg => class!("h-10 gap-2 rounded-lg px-5"),
             Self::Icon => class!("size-9 rounded-lg"),

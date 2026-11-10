@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    asset::asset,
     context::Cx,
     icon::{icon, iconify::iconify_icon},
     router::{
@@ -30,17 +31,39 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
     require(cx, Perm::Upload).await?;
     Ok(view! {
         heading(title: t!(nav_upload).resolve(cx), subtitle: t!(upload_subtitle).resolve(cx))
-        <form method="post" action=(href!(upload)) enctype="multipart/form-data" class="mt-8 max-w-xl">
-            <label class="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border bg-card px-6 py-14 text-center transition-colors hover:border-primary/60 hover:bg-primary/5">
-                <span class="grid size-12 place-items-center rounded-full bg-primary/10 text-primary">
-                    icon(data: iconify_icon!("lucide:upload"), size: topcoat::view::Length::px(22.0))
+        <form method="post" action=(href!(upload)) enctype="multipart/form-data" class="mt-8 max-w-xl" data-upload="">
+            // The file input covers the whole zone, invisible, so clicking and dropping
+            // files both work natively; `upload.js` only adds feedback.
+            <div
+                data-zone=""
+                class="relative flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border bg-card px-6 py-12 text-center transition-colors hover:border-primary/60 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring data-[over]:border-primary data-[over]:bg-primary/5"
+            >
+                <span class="mb-2 text-muted-foreground">
+                    icon(data: iconify_icon!("lucide:book-up"), size: topcoat::view::Length::px(28.0))
                 </span>
-                <span class="font-medium">(t!(upload_choose))</span>
+                <span class="font-medium">
+                    (t!(upload_choose))
+                    <span class="hidden font-normal text-muted-foreground md:inline">" " (t!(upload_drop))</span>
+                </span>
                 <span class="text-sm text-muted-foreground">(t!(upload_formats))</span>
-                <input type="file" name="files" multiple="" required="" accept=(ACCEPTED) class="mt-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-primary-foreground">
-            </label>
-            button(attrs: attributes! { type="submit" class="mt-4" }, icon(data: iconify_icon!("lucide:upload")) (t!(upload_submit)))
+                <input
+                    type="file"
+                    name="files"
+                    multiple=""
+                    required=""
+                    accept=(ACCEPTED)
+                    aria-label=(t!(upload_choose))
+                    class="absolute inset-0 size-full cursor-pointer opacity-0"
+                >
+            </div>
+            <ul data-files="" hidden="" class="mt-4 divide-y divide-border rounded-xl border border-border bg-card px-4 text-sm"></ul>
+            button(
+                attrs: attributes! { type="submit" class="mt-4 w-full sm:w-auto" data-sending=(t!(upload_sending)) },
+                icon(data: iconify_icon!("lucide:upload"))
+                <span data-label="">(t!(upload_submit))</span>
+            )
         </form>
+        <script src=(asset!("./upload.js"))></script>
     })
 }
 
@@ -84,7 +107,7 @@ pub async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
         ([id], true) => with_msg(href!(book_page, BookId(*id)).resolve(cx), &t!(upload_added_one).resolve(cx)),
         (_, true) if !added.is_empty() => with_msg(href!(crate::app::home).resolve(cx), &t!(upload_added, count = done).resolve(cx)),
         (_, true) => with_error(back, &t!(upload_none).resolve(cx)),
-        _ => with_error(back, &format!("{} {}", t!(upload_partial, done, tried).resolve(cx), errors.join("; "))),
+        _ => with_error(back, &format!("{}. {}", t!(upload_partial, done, tried).resolve(cx), errors.join("; "))),
     }))
 }
 

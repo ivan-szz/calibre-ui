@@ -77,7 +77,7 @@ pub async fn shelf_list(cx: &Cx, revision: Signal<u32>) -> Result<impl View> {
                 #[key(shelf.id)]
                 for (shelf, count, preview) in shelves {
                     let id = shelf.id;
-                    <li class="relative rounded-md border border-border bg-card p-4 transition-colors has-[a:hover]:border-primary/60 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
+                    <li class="relative rounded-xl border border-border bg-card p-4 transition-colors has-[a:hover]:border-primary/60 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
                         // The covers stand on a plank: the border under them.
                         <div class="flex h-24 items-end gap-1.5 border-b-2 border-foreground/15 px-1 pr-10">
                             if preview.is_empty() {

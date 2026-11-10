@@ -161,7 +161,7 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                                 if user.can(Perm::Upload) {
                                     nav_link(target: href!(upload::page).resolve(cx), data: iconify_icon!("lucide:upload"), label: t!(nav_upload))
                                 }
-                                <p class="hidden px-3 pt-5 pb-1 text-xs text-muted-foreground md:block">(t!(nav_browse))</p>
+                                <p class="hidden px-3 pt-6 pb-2 text-xs text-muted-foreground md:block">(t!(nav_browse))</p>
                                 #[key(kind.to_string())]
                                 for kind in Kind::ALL {
                                     nav_link(
@@ -170,7 +170,7 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                                         label: kind_label(kind),
                                     )
                                 }
-                                <p class="hidden px-3 pt-5 pb-1 text-xs text-muted-foreground md:block">(t!(nav_you))</p>
+                                <p class="hidden px-3 pt-6 pb-2 text-xs text-muted-foreground md:block">(t!(nav_you))</p>
                                 nav_link(target: href!(tasks::page).resolve(cx), data: iconify_icon!("lucide:list-checks"), label: t!(nav_tasks))
                                 nav_link(target: href!(account::page).resolve(cx), data: iconify_icon!("lucide:user-round"), label: t!(nav_account))
                                 if user.admin {

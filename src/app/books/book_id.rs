@@ -237,7 +237,7 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                             </p>
                         } else {
                             <form method="post" action=(href!(send, BookId(id))) class="flex flex-wrap items-center gap-2">
-                                <select name="format" aria-label=(t!(format_to_send)) class="h-8 rounded-md border border-border bg-transparent px-2 text-sm">
+                                <select name="format" aria-label=(t!(format_to_send)) class="h-8 rounded-lg border border-border bg-transparent px-2 text-sm">
                                     for format in &sendable { <option value=(*format)>(*format)</option> }
                                 </select>
                                 button(variant: ButtonVariant::Outline, size: ButtonSize::Sm, attrs: attributes! { type="submit" }, (t!(send_to, email = user.ereader_email.as_str())))
@@ -253,11 +253,11 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                             (t!(convert))
                         </h2>
                         <form method="post" action=(href!(convert, BookId(id))) class="flex flex-wrap items-center gap-2 text-sm">
-                            <select name="from" aria-label=(t!(convert_from)) class="h-8 rounded-md border border-border bg-transparent px-2">
+                            <select name="from" aria-label=(t!(convert_from)) class="h-8 rounded-lg border border-border bg-transparent px-2">
                                 for format in &book.formats { <option value=(&format.format)>(&format.format)</option> }
                             </select>
                             icon(data: iconify_icon!("lucide:arrow-right"), attrs: attributes! { class="text-muted-foreground" })
-                            <select name="to" aria-label=(t!(convert_to)) class="h-8 rounded-md border border-border bg-transparent px-2">
+                            <select name="to" aria-label=(t!(convert_to)) class="h-8 rounded-lg border border-border bg-transparent px-2">
                                 for format in &targets { <option value=(*format)>(*format)</option> }
                             </select>
                             button(variant: ButtonVariant::Outline, size: ButtonSize::Sm, attrs: attributes! { type="submit" }, (t!(convert)))

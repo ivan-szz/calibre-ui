@@ -155,7 +155,8 @@ pub async fn book_list(
                         href=(sort_href(query.q.as_deref(), key))
                         aria-current=((sort == key).then_some("true"))
                         class=(class!(
-                            "shrink-0 rounded-md px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors",
+                            // The bar's 8px radius minus its 4px padding.
+                            "shrink-0 rounded px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors",
                             "bg-primary text-primary-foreground" if sort == key,
                             "text-muted-foreground hover:bg-foreground/5 hover:text-foreground" if sort != key,
                         ))
@@ -191,7 +192,22 @@ pub fn encode(value: &str) -> String {
 
 /// A responsive grid of book covers with their titles and authors.
 #[component]
-pub async fn book_grid(books: Vec<BookSummary>) -> Result<impl View> {
+pub async fn book_grid(cx: &Cx, books: Vec<BookSummary>) -> Result<impl View> {
+    // The signed-in user's own marks: a gilt ribbon on books they have read, a gilt
+    // progress line on books they are partway through. Unread books carry nothing.
+    let user_id = super::signed_in(cx).await?.id;
+    let read: std::collections::HashSet<u64> = ReadMark::book_ids(cx, user_id).await?.into_iter().collect();
+    let progress: std::collections::HashMap<u64, u64> =
+        ReadingPosition::in_progress(cx, user_id).await?.into_iter().map(|p| (p.book_id, p.percent)).collect();
+    let books: Vec<(BookSummary, bool, Option<u64>)> = books
+        .into_iter()
+        .map(|b| {
+            let id = b.id as u64;
+            let done = read.contains(&id);
+            let percent = if done { None } else { progress.get(&id).copied() };
+            (b, done, percent)
+        })
+        .collect();
     Ok(view! {
         if books.is_empty() {
             <div class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border py-20 text-center text-muted-foreground">
@@ -201,10 +217,55 @@ pub async fn book_grid(books: Vec<BookSummary>) -> Result<impl View> {
         } else {
             <ul class="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 #[key(book.id)]
-                for book in books {
+                for (book, done, percent) in books {
                     <li>
                         <a href=(href!(book_page, BookId(book.id))) class="group block outline-none">
-                            cover(id: book.id, title: book.title.clone(), has_cover: book.has_cover)
+                            <div class="relative">
+                                cover(id: book.id, title: book.title.clone(), has_cover: book.has_cover)
+                                // On hover or keyboard focus, the cover dims under where the
+                                // reader is. The ribbon and bar stay the signs for touch
+                                // screens, and come after it so the dimming leaves them bright.
+                                if done || percent.is_some() {
+                                    <div
+                                        aria-hidden="true"
+                                        class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-[3px] bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                                    >
+                                        match percent {
+                                            Some(percent) => {
+                                                <span class="font-serif text-4xl font-medium tabular-nums">(percent) "%"</span>
+                                                <span class="text-xs text-white/75">(t!(read_so_far))</span>
+                                            },
+                                            None => {
+                                                icon(data: iconify_icon!("lucide:check"), size: Length::px(28.0))
+                                                <span class="font-serif text-lg font-medium">(t!(read_badge))</span>
+                                            },
+                                        }
+                                    </div>
+                                }
+                                if done {
+                                    // A ribbon bookmark hanging from the top edge, notched at its tail.
+                                    <span
+                                        role="img"
+                                        aria-label=(t!(read_badge))
+                                        title=(t!(read_badge))
+                                        class="absolute top-0 right-3 h-11 w-6 bg-gilt drop-shadow-[0_1px_1px_rgb(0_0_0/35%)] [clip-path:polygon(0_0,100%_0,100%_100%,50%_78%,0_100%)]"
+                                    ></span>
+                                }
+                                match percent {
+                                    Some(percent) => <div
+                                        role="progressbar"
+                                        aria-valuemin="0"
+                                        aria-valuemax="100"
+                                        aria-valuenow=(percent)
+                                        aria-label=(t!(percent_read, percent))
+                                        title=(t!(percent_read, percent))
+                                        class="absolute inset-x-0 bottom-0 h-1.5 overflow-hidden rounded-b-[3px] bg-black/45"
+                                    >
+                                        <div class="h-full bg-gilt" style=(format!("width: {percent}%"))></div>
+                                    </div>,
+                                    None => "",
+                                }
+                            </div>
                             <p class="mt-3 line-clamp-2 text-sm leading-snug font-medium group-hover:underline group-focus-visible:underline">
                                 (&book.title)
                             </p>
@@ -292,7 +353,7 @@ pub async fn continue_reading(cx: &Cx) -> Result<impl View> {
                         <li class="w-[85%] shrink-0 snap-start sm:w-auto">
                             <a
                                 href=(href!(read::page, BookId(book.id)).resolve(cx) + "?format=" + &format)
-                                class="group flex items-center gap-4 rounded-md border border-border bg-card p-3 outline-none transition-colors hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring"
+                                class="group flex items-center gap-4 rounded-xl border border-border bg-card p-3 outline-none transition-colors hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring"
                             >
                                 <div class="w-14 shrink-0">
                                     cover(id: book.id, title: book.title.clone(), has_cover: book.has_cover)

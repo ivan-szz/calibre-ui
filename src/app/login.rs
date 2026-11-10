@@ -35,8 +35,8 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
         card(
             attrs: attributes! { class="w-full max-w-sm" },
             card_header(
-                <span class="mb-2 grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-                    icon(data: iconify_icon!("lucide:library-big"), size: topcoat::view::Length::px(20.0))
+                <span class="mb-2 text-primary">
+                    icon(data: iconify_icon!("lucide:library-big"), size: topcoat::view::Length::px(28.0))
                 </span>
                 card_title(if first_run { (t!(setup_title)) } else { (t!(login_title)) })
                 card_description(if first_run { (t!(setup_hint)) } else { (t!(login_hint)) })
