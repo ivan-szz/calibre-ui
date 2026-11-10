@@ -30,7 +30,7 @@ use topcoat::{
         response::{IntoResponse, Response},
     },
     runtime::RouterBuilderRuntimeExt,
-    session::{RouterBuilderSessionExt, SessionConfig},
+    session::RouterBuilderSessionExt,
     tailwind,
     view::{View, attributes, class, component, view},
 };
@@ -64,7 +64,7 @@ pub fn router() -> RouterBuilder {
         .discover()
         .assets(AssetBundle::load().unwrap())
         .cookies()
-        .sessions(SessionConfig::default())
+        .sessions(auth::session_config())
         .mail(mailer::config())
         // Book files can be far larger than the default 2 MiB.
         .layer(BodyLimit::max(512 * 1024 * 1024).at("/upload"))

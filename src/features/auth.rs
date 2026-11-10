@@ -247,6 +247,61 @@ pub async fn logout(cx: &Cx) -> Result<()> {
     Ok(())
 }
 
+/// The session settings. With `SECURE_COOKIES=true` the cookie is topcoat's hardened
+/// default (`__Host-`, `Secure`), which browsers drop over plain `http://` except on
+/// localhost; the default is a plain `HttpOnly`, `SameSite=Lax` cookie for private
+/// networks without HTTPS, like a homelab reached through a VPN.
+pub fn session_config() -> session::SessionConfig {
+    let secure = std::env::var("SECURE_COOKIES").is_ok_and(|v| matches!(v.trim(), "true" | "1"));
+    if secure {
+        session::SessionConfig::default()
+    } else {
+        session::SessionConfig::builder().token_store(PlainCookieStore).build()
+    }
+}
+
+/// The session cookie without `Secure`, so it survives plain `http://`.
+struct PlainCookieStore;
+
+const PLAIN_COOKIE: &str = "session";
+
+fn plain_cookies(cx: &Cx) -> impl topcoat::cookie::Cookies {
+    use topcoat::cookie::{Cookies as _, SameSite, cookies};
+    cookies(cx).override_same_site(SameSite::Lax).override_http_only(true).override_path("/")
+}
+
+impl session::TokenStore for PlainCookieStore {
+    fn read<'a>(&'a self, cx: &'a Cx) -> session::TokenStoreFuture<'a, Option<session::Token>> {
+        use topcoat::cookie::Cookies as _;
+        Box::pin(async move {
+            Ok(plain_cookies(cx).get(PLAIN_COOKIE).and_then(|c| session::Token::decode(c.value_trimmed()).ok()))
+        })
+    }
+
+    fn write<'a>(
+        &'a self,
+        cx: &'a Cx,
+        token: session::Token,
+        max_age: std::time::Duration,
+    ) -> session::TokenStoreFuture<'a, ()> {
+        use topcoat::cookie::{Cookie, Cookies as _, time};
+        Box::pin(async move {
+            plain_cookies(cx)
+                .override_max_age(time::Duration::try_from(max_age)?)
+                .add(Cookie::new(PLAIN_COOKIE, token.encode()));
+            Ok(())
+        })
+    }
+
+    fn delete<'a>(&'a self, cx: &'a Cx) -> session::TokenStoreFuture<'a, ()> {
+        use topcoat::cookie::{Cookie, Cookies as _};
+        Box::pin(async move {
+            plain_cookies(cx).remove(Cookie::new(PLAIN_COOKIE, ""));
+            Ok(())
+        })
+    }
+}
+
 impl User {
     pub async fn list(cx: &Cx) -> Result<Vec<User>> {
         Ok(User::all().order_by(User::fields().name().asc()).exec(&mut db(cx)).await?)
