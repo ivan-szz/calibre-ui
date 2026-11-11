@@ -104,7 +104,14 @@ async fn require_login(cx: &Cx, body: Body, next: Next<'_>) -> Result<Response> 
         || path.starts_with("/login/")
         || path.starts_with("/kobo/")
         || path.starts_with("/_topcoat/assets/");
-    if public || auth::current_user(cx).await.is_some() {
+    if public {
+        return next.run(cx, body).await;
+    }
+    if auth::current_user(cx).await.is_some() {
+        // Failing to extend the session must not fail a request it still covers.
+        if let Err(error) = auth::extend_session(cx).await {
+            eprintln!("extending the session failed: {error:#}");
+        }
         return next.run(cx, body).await;
     }
     if path.starts_with("/opds") {

@@ -28,6 +28,7 @@ Accounts, sessions, shelves, and reading positions live in the app's own `data.d
 | `MAIL_FROM` | Sender address. Allow it in your e-reader's approved senders. |
 | `HOST`, `PORT` | Where to listen. Default `127.0.0.1:3000`. |
 | `SECURE_COOKIES` | `true` makes the session cookie `Secure` (HTTPS only). Default `false`. |
+| `SESSION_DAYS` | How many days a sign-in lasts without a visit; each visit renews it. Default `7`. |
 | `PUBLIC_URL` | The app's address as users and devices reach it, like `https://books.example.com`. Needed for OIDC; used in Kobo sync links (otherwise taken from the request). |
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Turn on "Sign in with…" through an OpenID Connect provider. Register `{PUBLIC_URL}/login/oidc/callback` as its redirect URI. |
 | `OIDC_NAME` | The provider's name on the sign-in button. Default `SSO`. |

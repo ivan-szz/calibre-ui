@@ -5,7 +5,10 @@
 //! checked locally, then against LDAP when it is configured; OpenID Connect users sign
 //! in through their provider. Accounts from LDAP or OIDC have no local password.
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::LazyLock,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use argon2::{
     Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
@@ -100,8 +103,12 @@ pub struct Perms {
     pub edit: bool,
 }
 
+fn unix_secs(time: SystemTime) -> u64 {
+    time.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
+}
+
 fn now() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
+    unix_secs(SystemTime::now())
 }
 
 fn hex(hash: &TokenHash) -> String {
@@ -123,13 +130,21 @@ fn verify_password(password: &str, hash: &str) -> bool {
 
 /// The signed-in user, from the session cookie or HTTP Basic credentials.
 pub async fn current_user(cx: &Cx) -> Option<&User> {
-    lookup_user(cx).await.as_ref()
+    lookup_login(cx).await.as_ref().map(|login| &login.user)
+}
+
+/// Who is making the request, and when the session saying so ends.
+#[derive(Clone, Debug)]
+struct Login {
+    user: User,
+    /// Unix seconds. `None` for HTTP Basic credentials, which have no session.
+    session_expires_at: Option<u64>,
 }
 
 #[memoize]
-async fn lookup_user(cx: &Cx) -> Option<User> {
-    match resolve_user(cx).await {
-        Ok(user) => user,
+async fn lookup_login(cx: &Cx) -> Option<Login> {
+    match resolve_login(cx).await {
+        Ok(login) => login,
         Err(error) => {
             eprintln!("resolving the current user failed: {error:#}");
             None
@@ -137,18 +152,51 @@ async fn lookup_user(cx: &Cx) -> Option<User> {
     }
 }
 
-async fn resolve_user(cx: &Cx) -> Result<Option<User>> {
+async fn resolve_login(cx: &Cx) -> Result<Option<Login>> {
     let mut db = db(cx);
     if let Some(hash) = session::token_hash(cx).await? {
         let record = UserSession::filter_by_token_hash(hex(&hash)).first().exec(&mut db).await?;
         if let Some(record) = record.filter(|s| s.expires_at > now()) {
-            return Ok(User::filter_by_id(record.user_id).first().exec(&mut db).await?);
+            let user = User::filter_by_id(record.user_id).first().exec(&mut db).await?;
+            return Ok(user.map(|user| Login { user, session_expires_at: Some(record.expires_at) }));
         }
     }
     if let Some((name, password)) = basic_credentials(cx) {
-        return authenticate(cx, &name, &password).await;
+        let user = authenticate(cx, &name, &password).await?;
+        return Ok(user.map(|user| Login { user, session_expires_at: None }));
     }
     Ok(None)
+}
+
+/// How much of a session's lifetime passes before a visit pushes its expiry forward
+/// again, so that a page full of covers does not write the session on every request.
+const EXTEND_AFTER: u64 = 60 * 60;
+
+/// Whether a session ending at `expires_at` has gone long enough without being
+/// extended to be extended now.
+fn due_for_extension(expires_at: u64, now: u64, lifetime: u64) -> bool {
+    expires_at.saturating_sub(now) + EXTEND_AFTER.min(lifetime / 2) <= lifetime
+}
+
+/// Pushes the session's expiry forward for a signed-in user who is using the app, so
+/// the session ends `SESSION_DAYS` after the last visit rather than after signing in.
+///
+/// This sets a cookie, so call it before the response starts.
+pub async fn extend_session(cx: &Cx) -> Result<()> {
+    let Some(expires_at) = lookup_login(cx).await.as_ref().and_then(|login| login.session_expires_at) else {
+        return Ok(());
+    };
+    if !due_for_extension(expires_at, now(), session_lifetime().as_secs()) {
+        return Ok(());
+    }
+    let Some(session) = session::refresh(cx).await? else {
+        return Ok(());
+    };
+    let mut db = db(cx);
+    if let Some(mut record) = UserSession::filter_by_token_hash(hex(&session.token_hash)).first().exec(&mut db).await? {
+        record.update().expires_at(unix_secs(session.expires_at)).exec(&mut db).await?;
+    }
+    Ok(())
 }
 
 /// The user with these credentials, if they are right.
@@ -229,11 +277,10 @@ pub async fn login(cx: &Cx, name: &str, password: &str) -> Result<bool> {
 /// Starts a session for a user whose identity is already established.
 pub async fn start_session(cx: &Cx, user: &User) -> Result<()> {
     let session = session::start(cx).await?;
-    let expires_at = session.expires_at.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
     toasty::create!(UserSession {
         token_hash: hex(&session.token_hash),
         user_id: user.id,
-        expires_at,
+        expires_at: unix_secs(session.expires_at),
     })
     .exec(&mut db(cx))
     .await?;
@@ -251,19 +298,38 @@ pub async fn logout(cx: &Cx) -> Result<()> {
 /// default (`__Host-`, `Secure`), which browsers drop over plain `http://` except on
 /// localhost; the default is a plain `HttpOnly`, `SameSite=Lax` cookie for private
 /// networks without HTTPS, like a homelab reached through a VPN.
+///
+/// A session ends `SESSION_DAYS` days after the user's last visit, a week by default.
 pub fn session_config() -> session::SessionConfig {
     let secure = std::env::var("SECURE_COOKIES").is_ok_and(|v| matches!(v.trim(), "true" | "1"));
-    if secure {
-        session::SessionConfig::default()
-    } else {
-        session::SessionConfig::builder().token_store(PlainCookieStore).build()
-    }
+    let builder = session::SessionConfig::builder().lifetime(session_lifetime());
+    if secure { builder.build() } else { builder.token_store(PlainCookieStore).build() }
+}
+
+/// How long a session lasts without a visit, when `SESSION_DAYS` is unset or invalid.
+const DEFAULT_SESSION_DAYS: u64 = 7;
+
+/// How long a session lasts without a visit, from `SESSION_DAYS`.
+fn session_lifetime() -> Duration {
+    static LIFETIME: LazyLock<Duration> = LazyLock::new(|| {
+        let days = parse_session_days(std::env::var("SESSION_DAYS").ok().as_deref());
+        Duration::from_secs(days * 24 * 60 * 60)
+    });
+    *LIFETIME
+}
+
+/// Browsers cap a cookie's age at 400 days, so a longer session would end there anyway.
+fn parse_session_days(value: Option<&str>) -> u64 {
+    value.and_then(|v| v.trim().parse().ok()).filter(|days| *days > 0).unwrap_or(DEFAULT_SESSION_DAYS).min(400)
 }
 
 /// The session cookie without `Secure`, so it survives plain `http://`.
 struct PlainCookieStore;
 
-const PLAIN_COOKIE: &str = "session";
+/// Named after the app: browsers share cookies between every port of a host, so a
+/// generic name like `session` is overwritten by any other app served from the same
+/// machine that uses it, which signs the user out here.
+const PLAIN_COOKIE: &str = "calibre_ui_session";
 
 fn plain_cookies(cx: &Cx) -> impl topcoat::cookie::Cookies {
     use topcoat::cookie::{Cookies as _, SameSite, cookies};
@@ -408,6 +474,27 @@ mod tests {
         assert_eq!(parse_basic("YWRtaW46c2VjcmV0"), Some(("admin".into(), "secret".into())));
         assert!(parse_basic("*").is_none());
         assert!(parse_basic("YQ==").is_none()); // no colon
+    }
+
+    #[test]
+    fn reads_the_session_lifetime() {
+        assert_eq!(parse_session_days(None), 7);
+        assert_eq!(parse_session_days(Some(" 30 ")), 30);
+        assert_eq!(parse_session_days(Some("")), 7);
+        assert_eq!(parse_session_days(Some("0")), 7);
+        assert_eq!(parse_session_days(Some("soon")), 7);
+        assert_eq!(parse_session_days(Some("9999")), 400);
+    }
+
+    #[test]
+    fn extends_sessions_once_they_have_aged() {
+        let week = 7 * 24 * 60 * 60;
+        // Just started or just extended: left alone.
+        assert!(!due_for_extension(1000 + week, 1000, week));
+        assert!(!due_for_extension(1000 + week - 600, 1000, week));
+        assert!(due_for_extension(1000 + week - EXTEND_AFTER, 1000, week));
+        // A session from before the lifetime was shortened waits until it fits.
+        assert!(!due_for_extension(1000 + 4 * week, 1000, week));
     }
 
     #[test]

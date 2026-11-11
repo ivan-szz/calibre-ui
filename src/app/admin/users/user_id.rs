@@ -21,7 +21,7 @@ use crate::{
         card::{card, card_content, card_description, card_header, card_title},
         input::input,
     },
-    features::{auth::{Perm, User}, shelf::Shelf},
+    features::{auth::{self, Perm, User}, shelf::Shelf},
     t,
 };
 
@@ -137,6 +137,11 @@ pub async fn reset_password(cx: &Cx, Form(form): Form<PasswordForm>) -> Result<S
         return Ok(see_other(with_error(back, &t!(password_rule).resolve(cx))));
     }
     User::set_password(cx, user.id, &form.password).await?;
+    // Setting a password ends the account's sessions. An admin setting their own keeps
+    // working in a new one instead of landing on the login page.
+    if require(cx, Perm::Admin).await?.id == user.id {
+        auth::start_session(cx, &user).await?;
+    }
     Ok(see_other(with_msg(back, &t!(password_set).resolve(cx))))
 }
 

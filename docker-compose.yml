@@ -14,6 +14,8 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-}
       # `true` hardens the session cookie (Secure, __Host-), which then needs HTTPS.
       SECURE_COOKIES: ${SECURE_COOKIES:-false}
+      # Days a sign-in lasts without a visit; each visit renews it.
+      SESSION_DAYS: ${SESSION_DAYS:-7}
       # Optional. Blank values count as unset.
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}
