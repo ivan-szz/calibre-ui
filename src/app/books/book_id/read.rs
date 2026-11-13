@@ -134,6 +134,7 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                             data-src=(file)
                             data-position=(saved.as_ref().map(|s| s.position.clone()))
                             data-resume-label=(t!(reader_resume))
+                            data-resume-dismiss=(t!(reader_resume_dismiss))
                             class="min-w-0 flex-1"
                         ></div>
                         <button id="next" type="button" aria-label=(t!(next_page)) title=(t!(next_page)) class="reader-turn">

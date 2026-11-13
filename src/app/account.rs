@@ -60,7 +60,26 @@ pub async fn page(cx: &Cx) -> Result<impl View> {
                 )
             )
             card(
-                attrs: attributes! { class="lg:col-span-2" },
+                card_header(
+                    card_title((t!(appearance)))
+                    card_description((t!(appearance_hint)))
+                )
+                card_content(
+                    <form method="post" action=(href!(save_theme)) class="grid gap-4">
+                        <fieldset class="grid gap-2">
+                            <legend class="mb-2 text-sm font-medium">(t!(theme))</legend>
+                            for (value, label) in [("", t!(theme_system)), ("light", t!(theme_light)), ("dark", t!(theme_dark_ui))] {
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="radio" name="theme" value=(value) checked=((user.theme == value).then_some("")) class="accent-primary">
+                                    (label)
+                                </label>
+                            }
+                        </fieldset>
+                        button(attrs: attributes! { type="submit" class="justify-self-start" }, (t!(save)))
+                    </form>
+                )
+            )
+            card(
                 card_header(
                     card_title((t!(kobo_sync)))
                     card_description((t!(kobo_hint)))
@@ -115,6 +134,19 @@ pub async fn kobo(cx: &Cx, Form(form): Form<KoboForm>) -> Result<SeeOther> {
     User::set_kobo_token(cx, user.id, token.as_deref()).await?;
     let msg = if token.is_some() { t!(kobo_enabled) } else { t!(kobo_disabled) };
     Ok(see_other(with_msg(href!(page).resolve(cx), &msg.resolve(cx))))
+}
+
+#[derive(Deserialize)]
+pub struct ThemeForm {
+    theme: String,
+}
+
+/// Saves the app's colour scheme on the account, so it follows the user to any device.
+#[route(POST "./theme")]
+pub async fn save_theme(cx: &Cx, Form(form): Form<ThemeForm>) -> Result<SeeOther> {
+    let user = signed_in(cx).await?;
+    User::set_theme(cx, user.id, &form.theme).await?;
+    Ok(see_other(with_msg(href!(page).resolve(cx), &t!(theme_saved).resolve(cx))))
 }
 
 #[derive(Deserialize)]

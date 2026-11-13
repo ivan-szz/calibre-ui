@@ -49,8 +49,18 @@
    file is installed at the project root, so `./src` is the crate's source. */
 @source "./src/**/*.rs";
 
-/* Dark mode follows the system color scheme. */
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/* Dark mode follows the system color scheme, unless the account picked one:
+   the layout then sets `data-theme="light"` or `"dark"` on `<html>`. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+}
 
 /* Expose the tokens as Tailwind utilities (`bg-background`, `text-primary`,
    `border-border`, ...). The indirection through plain variables on `:root`
@@ -114,9 +124,9 @@
     0 2px 8px -2px rgb(30 36 33 / 9%);
 }
 
-/* Follows the system color scheme. */
-@media (prefers-color-scheme: dark) {
+/* The `dark` variant above: the system's scheme, or the account's choice. */
 :root {
+  @variant dark {
   --background: #131916;
   --foreground: #e2e7e3;
   --card: #1a211d;
@@ -235,7 +245,11 @@
   }
 
   .reader-resume-label {
-    @apply pointer-events-none absolute z-10 rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium whitespace-nowrap text-primary-foreground shadow-sm;
+    @apply absolute z-10 inline-flex items-center gap-1 rounded-full bg-primary py-0.5 pr-0.5 pl-2.5 text-xs font-medium whitespace-nowrap text-primary-foreground shadow-sm;
+  }
+
+  .reader-resume-close {
+    @apply inline-flex size-4 items-center justify-center rounded-full outline-none hover:bg-primary-foreground/20 focus-visible:ring-2 focus-visible:ring-primary-foreground;
   }
 
   /* A chosen file in the upload form. Built by `upload.js`, which Tailwind does not scan. */

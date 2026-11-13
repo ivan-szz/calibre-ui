@@ -293,12 +293,30 @@
   // top of the page they were on. The mark stays for the whole visit, tied to that
   // line: it sits over the book's frame, so the book's own layout is untouched, and
   // is placed again whenever the pages move, showing only while its line is on screen.
+  // The label above it can be closed; the lit line stays.
   const saved = viewer.dataset.position;
+  let dismissed = false;
   const band = document.createElement("div");
   band.className = "reader-resume";
   const label = document.createElement("div");
   label.className = "reader-resume-label";
-  label.setAttribute("role", "status");
+  const labelText = document.createElement("span");
+  labelText.setAttribute("role", "status");
+  labelText.textContent = viewer.dataset.resumeLabel;
+  const dismiss = document.createElement("button");
+  dismiss.type = "button";
+  dismiss.className = "reader-resume-close";
+  dismiss.setAttribute("aria-label", viewer.dataset.resumeDismiss);
+  dismiss.title = viewer.dataset.resumeDismiss;
+  // Lucide's "x".
+  dismiss.innerHTML =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+  // Closing the label leaves the line lit.
+  dismiss.addEventListener("click", () => {
+    dismissed = true;
+    label.hidden = true;
+  });
+  label.append(labelText, dismiss);
   band.hidden = label.hidden = true;
   // The first visible character at or after a point. A chapter's start often falls
   // in the blank text before its heading, or between two elements, neither of which
@@ -357,8 +375,8 @@
     // Above the line when there is room, otherwise just under it.
     const above = top > 34;
     Object.assign(label.style, { left: left - 8 + "px", top: (above ? top - 30 : top + char.height + 6) + "px" });
-    if (!label.textContent) label.textContent = viewer.dataset.resumeLabel;
-    band.hidden = label.hidden = false;
+    band.hidden = false;
+    label.hidden = dismissed;
   };
   if (saved) {
     viewer.parentElement.append(band, label);

@@ -134,7 +134,11 @@ async fn root(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
     let reading = books::book_id::read::is_reader(request::uri(cx).path());
     Ok(view! {
         <!DOCTYPE html>
-        <html lang=(locale(cx).id()) dir=(locale(cx).id().direction())>
+        <html
+            lang=(locale(cx).id())
+            dir=(locale(cx).id().direction())
+            data-theme=(user.as_ref().map(|u| u.theme.clone()).filter(|t| !t.is_empty()))
+        >
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1">

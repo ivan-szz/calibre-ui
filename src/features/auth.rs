@@ -23,6 +23,9 @@ use topcoat::{
 
 use crate::db::db;
 
+/// The colour schemes a user can pick for the app. Empty, the default, follows the device.
+pub const THEMES: [&str; 2] = ["light", "dark"];
+
 /// An account. An admin has every permission.
 #[derive(Clone, Debug, toasty::Model)]
 pub struct User {
@@ -44,6 +47,9 @@ pub struct User {
     /// The secret in this user's Kobo sync URL, or empty when Kobo sync is off.
     #[index]
     pub kobo_token: String,
+
+    /// One of [`THEMES`]: the app's colour scheme, or empty to follow the device.
+    pub theme: String,
 
     pub admin: bool,
     pub can_download: bool,
@@ -244,6 +250,7 @@ pub async fn external_user(cx: &Cx, name: &str) -> Result<Option<User>> {
         ereader_email: "",
         hidden_tags: "",
         kobo_token: "",
+        theme: "",
         admin: false,
         can_download: true,
         can_upload: false,
@@ -393,6 +400,7 @@ impl User {
             ereader_email: "",
             hidden_tags: "",
             kobo_token: "",
+            theme: "",
             admin: perms.admin,
             can_download: perms.download,
             can_upload: perms.upload,
@@ -456,6 +464,15 @@ impl User {
         Ok(())
     }
 
+    /// Saves the app's colour scheme; anything but one of [`THEMES`] follows the device.
+    pub async fn set_theme(cx: &Cx, id: u64, theme: &str) -> Result<()> {
+        let theme = if THEMES.contains(&theme) { theme } else { "" };
+        let mut db = db(cx);
+        let mut user = User::get_by_id(&mut db, &id).await?;
+        user.update().theme(theme).exec(&mut db).await?;
+        Ok(())
+    }
+
     /// Deletes an account with its sessions.
     pub async fn remove(cx: &Cx, id: u64) -> Result<()> {
         let mut db = db(cx);
@@ -513,6 +530,7 @@ mod tests {
             ereader_email: String::new(),
             hidden_tags: " Adult, ,spoilers ".into(),
             kobo_token: String::new(),
+            theme: String::new(),
             admin: false,
             can_download: true,
             can_upload: false,
